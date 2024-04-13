@@ -101,7 +101,7 @@ namespace il2cpp_utils {
         }
 
         void log_backtrace() const;
-        [[noreturn]] void rethrow() const {
+        void rethrow() const {
         }
 
         [[nodiscard]] virtual char const* what() const noexcept override {
