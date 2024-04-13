@@ -102,12 +102,6 @@ namespace il2cpp_utils {
 
         void log_backtrace() const;
         [[noreturn]] void rethrow() const {
-            #if defined(UNITY_2019) || defined(UNITY_2021)
-            il2cpp_utils::raise(ex);
-            #else
-            #warning "The exception being rethrown like this is unlikely to behave correctly!"
-            throw Il2CppExceptionWrapper(ex);
-            #endif
         }
 
         [[nodiscard]] virtual char const* what() const noexcept override {
