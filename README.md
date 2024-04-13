@@ -4,6 +4,10 @@ _known by literally no one as pineappl_
 
 ## Information
 
+**FORK NOTE:** This is a fork intended to provide the minimum for cordl headers to work independently of sl2 or whatever else. It removes logging and hooking, leaving just the il2cpp utils basically.
+
+------
+
 This library offers a wide realm of C++11 to C++20 features for modding il2cpp games on Android devices (specifically meant for the Oculus Quest 1 and 2).
 
 Do not be put off by the name: `beatsaber-hook`, this is entirely game agnostic.
