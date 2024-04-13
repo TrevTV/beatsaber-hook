@@ -1,6 +1,5 @@
 #include "shared/utils/gc-alloc.hpp"
 #include "shared/utils/il2cpp-functions.hpp"
-#include "shared/utils/logging.hpp"
 #include "shared/utils/utils.h"
 
 #include <android/log.h>

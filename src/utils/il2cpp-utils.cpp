@@ -83,23 +83,20 @@ namespace il2cpp_utils {
 
 
     Il2CppClass* GetParamClass(const MethodInfo* method, int paramIdx) {
-        auto const& logger = il2cpp_utils::Logger;
-        auto type = RET_0_UNLESS(logger, il2cpp_functions::method_get_param(method, paramIdx));
+        auto type = RET_0_UNLESS(il2cpp_functions::method_get_param(method, paramIdx));
         return il2cpp_functions::class_from_il2cpp_type(type);
     }
 
     Il2CppReflectionType* MakeGenericType(Il2CppReflectionType* gt, Il2CppArray* types) {
-        auto const& logger = il2cpp_utils::Logger;
         il2cpp_functions::Init();
 
-        auto runtimeType = RET_0_UNLESS(logger, il2cpp_functions::defaults->runtimetype_class);
-        auto makeGenericMethod = RET_0_UNLESS(logger, FindMethodUnsafe(runtimeType, "MakeGenericType", 2));
+        auto runtimeType = RET_0_UNLESS(il2cpp_functions::defaults->runtimetype_class);
+        auto makeGenericMethod = RET_0_UNLESS(FindMethodUnsafe(runtimeType, "MakeGenericType", 2));
 
         Il2CppException* exp = nullptr;
         void* params[] = {reinterpret_cast<void*>(gt), reinterpret_cast<void*>(types)};
         auto genericType = il2cpp_functions::runtime_invoke(makeGenericMethod, nullptr, params, &exp);
         if (exp) {
-            logger.error("il2cpp_utils: MakeGenericType: Failed with exception: {}", ExceptionToString(exp).c_str());
             return nullptr;
         }
         return reinterpret_cast<Il2CppReflectionType*>(genericType);
@@ -111,9 +108,8 @@ namespace il2cpp_utils {
     }
 
     Il2CppReflectionType* GetSystemType(const Il2CppClass* klass) {
-        auto const& logger = il2cpp_utils::Logger;
         il2cpp_functions::Init();
-        RET_0_UNLESS(logger, klass);
+        RET_0_UNLESS(klass);
 
         auto* typ = il2cpp_functions::class_get_type_const(klass);
         return GetSystemType(typ);
@@ -124,12 +120,10 @@ namespace il2cpp_utils {
     }
 
     void GenericsToStringHelper(Il2CppGenericClass* genClass, std::ostream& os) {
-        auto const& logger = il2cpp_utils::Logger;
         auto genContext = &genClass->context;
         auto* genInst = genContext->class_inst;
         if (!genInst) {
             genInst = genContext->method_inst;
-            if (genInst) logger.warn("Missing class_inst! Trying method_inst?");
         }
         if (genInst) {
             os << "<";
@@ -140,8 +134,6 @@ namespace il2cpp_utils {
                 os << typName;
             }
             os << ">";
-        } else {
-            logger.warn("context->class_inst missing for genClass!");
         }
     }
 
@@ -180,26 +172,22 @@ namespace il2cpp_utils {
     }
 
     Il2CppObject* createManual(const Il2CppClass* klass) noexcept {
-        auto const& logger = il2cpp_utils::Logger;
         if (!klass) {
-            logger.error("Cannot create a manual object on a null class!");
             return nullptr;
         }
         if (!klass->initialized) {
-            logger.error("Cannot create an object that does not have an initialized class: {}", fmt::ptr(klass));
             return nullptr;
         }
         auto* obj = reinterpret_cast<Il2CppObject*>(gc_alloc_specific(klass->instance_size));
         if (!obj) {
-            logger.error("Failed to allocate GC specific area for instance size: {}", klass->instance_size);
             return nullptr;
         }
         obj->klass = const_cast<Il2CppClass*>(klass);
         // Call cctor, we don't bother making a new thread for the type initializer. BE WARNED!
         if (klass->has_cctor && !klass->cctor_finished_or_no_cctor && !klass->cctor_started) {
             obj->klass->cctor_started = true;
-            auto* m = RET_0_UNLESS(logger, FindMethodUnsafe(klass, ".cctor", 0));
-            RET_0_UNLESS(logger, il2cpp_utils::RunMethodOpt(nullptr, m));
+            auto* m = RET_0_UNLESS(FindMethodUnsafe(klass, ".cctor", 0));
+            RET_0_UNLESS(il2cpp_utils::RunMethodOpt(nullptr, m));
             obj->klass->cctor_finished_or_no_cctor = true;
         }
         return obj;
@@ -207,11 +195,11 @@ namespace il2cpp_utils {
 
     Il2CppObject* createManualThrow(Il2CppClass* const klass) {
         if (!klass->initialized) {
-            throw exceptions::StackTraceException(fmt::format("Cannot create an object that does not have an initialized class: {}", fmt::ptr(klass)));
+            throw exceptions::StackTraceException("Cannot create an object that does not have an initialized class");
         }
         auto* obj = reinterpret_cast<Il2CppObject*>(gc_alloc_specific(klass->instance_size));
         if (!obj) {
-            throw exceptions::StackTraceException(fmt::format("Failed to allocate GC specific area for instance size: {}", klass->instance_size));
+            throw exceptions::StackTraceException("Failed to allocate GC specific area for instance");
         }
         obj->klass = const_cast<Il2CppClass*>(klass);
         // Call cctor, we don't bother making a new thread for the type initializer. BE WARNED!
@@ -249,11 +237,8 @@ namespace il2cpp_utils {
     }
 
     bool AssertMatch(const Il2CppObject* source, Il2CppClass* klass) {
-        auto const& logger = il2cpp_utils::Logger;
         il2cpp_functions::Init();
         if (!Match(source, klass)) {
-            logger.critical("source with class '{}' does not match class '{}'!",
-                ClassStandardName(source->klass), ClassStandardName(klass));
             SAFE_ABORT();
         }
         return true;

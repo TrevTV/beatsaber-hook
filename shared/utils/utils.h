@@ -19,7 +19,6 @@ namespace std {
 #endif
 #include <thread>
 #include <optional>
-#include "hook-tracker.hpp"
 
 // For use in SAFE_ABORT/CRASH_UNLESS (& RET_UNLESS if possible)
 // And also logging
@@ -100,15 +99,14 @@ auto&& unwrap_optionals(T&& arg) {
 // Logs error and RETURNS argument 1 IFF argument 2 boolean evaluates as false; else EVALUATES to argument 2
 // thank god for this GCC ({}) extension which "evaluates to the last statement"
 #ifndef SUPPRESS_MACRO_LOGS
-#define RET_UNLESS(retval, loggerContext, ...) ({ \
+#define RET_UNLESS(retval, ...) ({ \
     auto&& __temp__ = (__VA_ARGS__); \
     if (!__temp__) { \
-        loggerContext.error("{} (in {} at {}:{}) returned false!", #__VA_ARGS__, __PRETTY_FUNCTION__, __FILE__, __LINE__); \
         return retval; \
     } \
     unwrap_optionals(__temp__); })
 #else
-#define RET_UNLESS(retval, loggerContext, ...) ({ \
+#define RET_UNLESS(retval, ...) ({ \
     auto&& __temp__ = (__VA_ARGS__); \
     if (!__temp__) { \
         return retval; \
@@ -118,32 +116,30 @@ auto&& unwrap_optionals(T&& arg) {
 
 #if __has_feature(cxx_exceptions)
 #ifndef SUPPRESS_MACRO_LOGS
-#define THROW_OR_RET_NULL(contextLogger, ...) ({ \
+#define THROW_OR_RET_NULL(...) ({ \
     auto&& __temp__ = (__VA_ARGS__); \
     if (!__temp__) { \
-        contextLogger.error("{} (in {} at {}:{}) returned false!", #__VA_ARGS__, __PRETTY_FUNCTION__, __FILE__, __LINE__); \
-        throw ::il2cpp_utils::Il2CppUtilsException(contextLogger.tag, #__VA_ARGS__ " is false!", __PRETTY_FUNCTION__, __FILE__, __LINE__); \
+        throw ::il2cpp_utils::Il2CppUtilsException("beatsaber-hook", #__VA_ARGS__ " is false!", __PRETTY_FUNCTION__, __FILE__, __LINE__); \
     } \
     unwrap_optionals(__temp__); })
 #else
-#define THROW_OR_RET_NULL(contextLogger, ...) ({ \
+#define THROW_OR_RET_NULL(...) ({ \
     auto&& __temp__ = (__VA_ARGS__); \
     if (!__temp__) { \
-        throw ::il2cpp_utils::Il2CppUtilsException(contextLogger.tag, #__VA_ARGS__ " is false!"); \
+        throw ::il2cpp_utils::Il2CppUtilsException("beatsaber-hook", #__VA_ARGS__ " is false!"); \
     } \
     unwrap_optionals(__temp__); })
 #endif
 #else
 #ifndef SUPPRESS_MACRO_LOGS
-#define THROW_OR_RET_NULL(contextLogger, ...) ({ \
+#define THROW_OR_RET_NULL(...) ({ \
     auto&& __temp__ = (__VA_ARGS__); \
     if (!__temp__) { \
-        contextLogger.error("{} (in {} at {}:{}) returned false!", #__VA_ARGS__, __PRETTY_FUNCTION__, __FILE__, __LINE__); \
         return nullptr; \
     } \
     unwrap_optionals(__temp__); })
 #else
-#define THROW_OR_RET_NULL(contextLogger, ...) ({ \
+#define THROW_OR_RET_NULL(...) ({ \
     auto&& __temp__ = (__VA_ARGS__); \
     if (!__temp__) { \
         return nullptr; \
@@ -152,10 +148,10 @@ auto&& unwrap_optionals(T&& arg) {
 #endif
 #endif
 
-#define RET_V_UNLESS(loggerContext, ...) RET_UNLESS(, loggerContext, __VA_ARGS__)
-#define RET_DEFAULT_UNLESS(loggerContext, ...) RET_UNLESS({}, loggerContext, __VA_ARGS__)
-#define RET_0_UNLESS(loggerContext, ...) RET_DEFAULT_UNLESS(loggerContext, __VA_ARGS__)
-#define RET_NULLOPT_UNLESS(loggerContext, ...) RET_DEFAULT_UNLESS(loggerContext, __VA_ARGS__)
+#define RET_V_UNLESS(...) RET_UNLESS(, __VA_ARGS__)
+#define RET_DEFAULT_UNLESS(...) RET_UNLESS({}, __VA_ARGS__)
+#define RET_0_UNLESS(...) RET_DEFAULT_UNLESS(__VA_ARGS__)
+#define RET_NULLOPT_UNLESS(...) RET_DEFAULT_UNLESS(__VA_ARGS__)
 
 #if __has_include(<concepts>)
 #define DEFINE_MEMBER_CHECKER(member) \
@@ -200,7 +196,6 @@ template<int s, int t> struct check_size {
 template <class...> constexpr std::false_type false_t{};
 
 #include "utils-functions.h"
-#include "logging.hpp"
 #include "il2cpp-utils-exceptions.hpp"
 
 #ifdef __cplusplus
@@ -219,22 +214,21 @@ typename identity<decltype(&Q::operator())>::type wrapLambda(Q const& f) {
 }
 
 template<class T>
-auto crashUnless(T&& arg, const char* func, const char* file, int line) {
-    if (!arg) safeAbort(func, file, line);
+auto crashUnless(T&& arg) {
+    if (!arg) safeAbort();
     return unwrap_optionals(arg);
 }
 #ifndef SUPPRESS_MACRO_LOGS
-#define CRASH_UNLESS(...) crashUnless(__VA_ARGS__, __PRETTY_FUNCTION__, __FILE__, __LINE__)
+#define CRASH_UNLESS(...) crashUnless(__VA_ARGS__)
 #else
-#define CRASH_UNLESS(...) crashUnless(__VA_ARGS__, "undefined_function", "undefined_file", -1)
+#define CRASH_UNLESS(...) crashUnless(__VA_ARGS__)
 #endif
 
 template<class T>
 uintptr_t getBase(T pc) {
     static_assert(sizeof(T) >= sizeof(void*));
     Dl_info info;
-    auto logger = il2cpp_utils::Logger;
-    RET_0_UNLESS(logger, dladdr((void*)pc, &info));
+    RET_0_UNLESS(dladdr((void*)pc, &info));
     return (uintptr_t)info.dli_fbase;
 }
 
@@ -251,14 +245,14 @@ using function_ptr_t = TRet(*)(TArgs...);
 
 #if __has_feature(cxx_exceptions)
 template<class T>
-auto throwUnless(T&& arg, const char* func, const char* file, int line) {
-    if (!arg) throw il2cpp_utils::exceptions::StackTraceException(fmt::format("Throwing in {} at {}:{}", func, file, line));
+auto throwUnless(T&& arg) {
+    if (!arg) throw il2cpp_utils::exceptions::StackTraceException("Stack trace throwing");
     return unwrap_optionals(arg);
 }
 #ifndef SUPPRESS_MACRO_LOGS
-#define THROW_UNLESS(...) throwUnless(__VA_ARGS__, __PRETTY_FUNCTION__, __FILE__, __LINE__)
+#define THROW_UNLESS(...) throwUnless(__VA_ARGS__)
 #else
-#define THROW_UNLESS(...) throwUnless(__VA_ARGS__, "undefined_function", "undefined_file", -1)
+#define THROW_UNLESS(...) throwUnless(__VA_ARGS__)
 #endif /* SUPPRESS_MACRO_LOGS */
 #endif /* __has_feature(cxx_exceptions) */
 
@@ -290,10 +284,10 @@ uintptr_t findPattern(uintptr_t dwAddress, const char* pattern, uintptr_t dwSear
 // Each candidate will be logged. label should describe what you're looking for, like "Class::Init".
 // Sets "multiple" iff multiple matches are found, and outputs a log warning message.
 // Returns the first match, if any.
-uintptr_t findUniquePattern(bool& multiple, uintptr_t dwAddress, const char* pattern, const char* label = 0, uintptr_t dwSearchRangeLen = 0x1000000);
+uintptr_t findUniquePattern(bool& multiple, uintptr_t dwAddress, const char* pattern, uintptr_t dwSearchRangeLen = 0x1000000);
 
 /// @brief Attempts to match the pattern provided with all regions of mapped read memory with the libil2cpp.so
-uintptr_t findUniquePatternInLibil2cpp(bool& multiple, const char* pattern, const char* label = 0);
+uintptr_t findUniquePatternInLibil2cpp(bool& multiple, const char* pattern);
 
 #ifdef __cplusplus
 }

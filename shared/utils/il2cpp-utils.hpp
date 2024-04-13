@@ -19,7 +19,6 @@
 #include "gc-alloc.hpp"
 
 #include "il2cpp-functions.hpp"
-#include "logging.hpp"
 #include "utils.h"
 #include "il2cpp-type-check.hpp"
 #include "typedefs.h"
@@ -184,7 +183,6 @@ namespace il2cpp_utils {
     T MakeDelegate(const Il2CppClass* delegateClass, TObj obj, function_ptr_t<R, TArgs...> callback) {
         static_assert(sizeof(TObj) == sizeof(void*), "TObj must have the same size as a pointer!");
         static_assert(sizeof(T) == sizeof(void*), "T must have the same size as a pointer!");
-        auto const& logger = il2cpp_utils::Logger;
         auto callbackPtr = reinterpret_cast<Il2CppMethodPointer>(callback);
         /*
         * TODO: call PlatformInvoke::MarshalFunctionPointerToDelegate directly instead of copying code from it,
@@ -214,10 +212,9 @@ namespace il2cpp_utils {
         }
         // In the event that a function is static, this will behave as normal
         // Yes, we mutate the held one as well. This is okay because we will ALWAYS mutate it.
-        auto* delegate = RET_DEFAULT_UNLESS(logger, il2cpp_utils::New<T>(delegateClass, obj, &method));
+        auto* delegate = RET_DEFAULT_UNLESS(il2cpp_utils::New<T>(delegateClass, obj, &method));
         auto* asDelegate = reinterpret_cast<Il2CppDelegate*>(delegate);
         if ((void*)asDelegate->method_ptr != (void*)callback) {
-            logger.error("Created Delegate's method_ptr ({p) is incorrect (should be {})!", fmt::ptr((void*)asDelegate->method_ptr), callback);
             return nullptr;
         }
         return delegate;
@@ -289,8 +286,7 @@ namespace il2cpp_utils {
     template<typename T = MulticastDelegate*, typename T1, typename T2>
     T MakeDelegate(const MethodInfo* method, int paramIdx, T1&& arg1, T2&& arg2) {
         il2cpp_functions::Init();
-        auto const& logger = il2cpp_utils::Logger;
-        auto* delegateType = RET_0_UNLESS(logger, il2cpp_functions::method_get_param(method, paramIdx));
+        auto* delegateType = RET_0_UNLESS(il2cpp_functions::method_get_param(method, paramIdx));
         return MakeDelegate<T>(delegateType, arg1, arg2);
     }
 
@@ -305,8 +301,7 @@ namespace il2cpp_utils {
     template<typename T = MulticastDelegate*, typename T1, typename T2>
     T MakeDelegate(FieldInfo* field, T1&& arg1, T2&& arg2) {
         il2cpp_functions::Init();
-        auto const& logger = il2cpp_utils::Logger;
-        auto* delegateType = RET_0_UNLESS(logger, il2cpp_functions::field_get_type(field));
+        auto* delegateType = RET_0_UNLESS(il2cpp_functions::field_get_type(field));
         return MakeDelegate<T>(delegateType, arg1, arg2);
     }
 
@@ -462,8 +457,7 @@ namespace il2cpp_utils {
     // Intializes an object (using the given args) fit to be passed to the given method at the given parameter index.
     template<typename... TArgs>
     Il2CppObject* CreateParam(const MethodInfo* method, int paramIdx, TArgs&& ...args) {
-        auto const& logger = il2cpp_utils::Logger;
-        auto* klass = RET_0_UNLESS(logger, GetParamClass(method, paramIdx));
+        auto* klass = RET_0_UNLESS(GetParamClass(method, paramIdx));
         return il2cpp_utils::New(klass, args...);
     }
 
@@ -474,8 +468,7 @@ namespace il2cpp_utils {
     template<typename T>
     Array<T>* vectorToArray(::std::vector<T>& vec) {
         il2cpp_functions::Init();
-        auto const& logger = il2cpp_utils::Logger;
-        Array<T>* arr = reinterpret_cast<Array<T>*>(RET_0_UNLESS(logger, il2cpp_functions::array_new(il2cpp_type_check::il2cpp_no_arg_class<T>::get(), vec.size())));
+        Array<T>* arr = reinterpret_cast<Array<T>*>(RET_0_UNLESS(il2cpp_functions::array_new(il2cpp_type_check::il2cpp_no_arg_class<T>::get(), vec.size())));
         for (size_t i = 0; i < vec.size(); i++) {
             arr->_values[i] = vec[i];
         }
@@ -523,13 +516,12 @@ namespace il2cpp_utils {
     T MakeFunc(function_ptr_t<Ret, TArgs...> lambda) {
         static_assert(sizeof...(TArgs) + 1 <= 16, "Cannot create a Func`<T1, T2, ..., TN> where N is > 16!");
         static_assert(!std::is_same_v<Ret, void>, "Function used in ::il2cpp_utils::MakeFunc must have a non-void return!");
-        auto const& logger = il2cpp_utils::Logger;
         // Get generic class with matching number of args
         static auto* genericClass = il2cpp_utils::GetClassFromName("System", "Func`" + ::std::to_string(sizeof...(TArgs) + 1));
         // Extract all parameter types and return types
         static auto genericClasses = ExtractFromFunctionNoArgs<Ret, TArgs...>();
         // Instantiate the Func` type
-        auto* instantiatedFunc = RET_DEFAULT_UNLESS(logger, il2cpp_utils::MakeGeneric(genericClass, genericClasses));
+        auto* instantiatedFunc = RET_DEFAULT_UNLESS(il2cpp_utils::MakeGeneric(genericClass, genericClasses));
         // Create the action from the instantiated Func` type
         return il2cpp_utils::MakeDelegate<T>(instantiatedFunc, static_cast<Il2CppObject*>(nullptr), lambda);
     }
@@ -541,14 +533,13 @@ namespace il2cpp_utils {
     template<typename T = MulticastDelegate*, typename... TArgs>
     T MakeAction(function_ptr_t<void, TArgs...> lambda) {
         static_assert(sizeof...(TArgs) <= 16, "Cannot create an Action`<T1, T2, ..., TN> where N is > 16!");
-        auto const& logger = il2cpp_utils::Logger;
         if constexpr (sizeof...(TArgs) != 0) {
             // Get generic class with matching number of args
             static auto* genericClass = il2cpp_utils::GetClassFromName("System", "Action`" + ::std::to_string(sizeof...(TArgs)));
             // Extract all parameter types and return types
             static auto genericClasses = ExtractFromFunctionNoArgs<TArgs...>();
             // Instantiate the Func` type
-            auto* instantiatedFunc = RET_DEFAULT_UNLESS(logger, il2cpp_utils::MakeGeneric(genericClass, genericClasses));
+            auto* instantiatedFunc = RET_DEFAULT_UNLESS(il2cpp_utils::MakeGeneric(genericClass, genericClasses));
             // Create the action from the instantiated Func` type
             return il2cpp_utils::MakeDelegate<T>(instantiatedFunc, static_cast<Il2CppObject*>(nullptr), lambda);
         } else {
@@ -583,7 +574,6 @@ namespace il2cpp_utils {
         /// @return True if the MethodInfo* is a valid match, false otherwise.
         static bool valid(const MethodInfo* info) noexcept {
             if (!info) {
-                il2cpp_utils::Logger.warn("Null MethodInfo* provided to: MethodTypeCheck::valid!");
                 return false;
             }
             if ((info->flags & METHOD_ATTRIBUTE_STATIC) == 0) {
@@ -635,7 +625,6 @@ namespace il2cpp_utils {
         /// @return True if the MethodInfo* is a valid match, false otherwise.
         static bool valid(const MethodInfo* info) noexcept {
             if (!info) {
-                il2cpp_utils::Logger.warn("Null MethodInfo* provided to: MethodTypeCheck::valid!");
                 return false;
             }
             if ((info->flags & METHOD_ATTRIBUTE_STATIC) != 0) {
@@ -680,7 +669,7 @@ namespace il2cpp_utils {
         il2cpp_functions::Init();
         auto out = reinterpret_cast<function_ptr_t<R, TArgs...>>(il2cpp_functions::resolve_icall(icallName.data()));
         if (!out) {
-            throw il2cpp_utils::RunMethodException(fmt::format("Failed to resolve_icall for icall: {}!", icallName.data()), nullptr);
+            throw il2cpp_utils::RunMethodException("Failed to resolve_icall for icall", nullptr);
         }
         return out;
     }
@@ -712,54 +701,41 @@ namespace il2cpp_utils {
         }
 
         static inline Il2CppThread* attach_thread() {
-            static auto logger = il2cpp_utils::Logger;
-            logger.info("Attaching thread {}", current_thread_id());
             il2cpp_functions::Init();
             // il2cpp attach
             auto domain = il2cpp_functions::domain_get();
             auto thread = il2cpp_functions::thread_attach(domain);
 
             // jvm attach
-            modloader_jvm->AttachCurrentThread(&env, nullptr);
+            // TODO: modloader specific stuff
+            //modloader_jvm->AttachCurrentThread(&env, nullptr);
             return thread;
         }
 
         static inline void detach_thread(Il2CppThread* thread) {
-            static auto logger = il2cpp_utils::Logger;
-            logger.info("Detaching thread {}", current_thread_id());
-
             // il2cpp detach
             il2cpp_functions::Init();
             il2cpp_functions::thread_detach(thread);
             // jvm detach
-            modloader_jvm->DetachCurrentThread();
+            // TODO: modloader specific stuff
+            //modloader_jvm->DetachCurrentThread();
             env = nullptr;
         }
 
         template<typename Func, typename... TArgs>
         requires(std::is_invocable_v<Func, TArgs...>)
         static inline std::invoke_result_t<Func, TArgs...> il2cpp_catch_invoke(Func&& func, TArgs&&... args) {
-            static auto logger = il2cpp_utils::Logger;
             auto thread_id = current_thread_id();
             try {
-                logger.error("Invoking function in thread id {}", thread_id);
                 return std::invoke(std::forward<Func>(func), std::forward<TArgs>(args)...);
             } catch (RunMethodException const& e) {
-                logger.error("Exception in thread with thread id {}", thread_id);
-                logger.error("Caught in mod id: " _CATCH_HANDLER_ID ": Uncaught RunMethodException! what(): {}", e.what());
                 e.log_backtrace();
                 SAFE_ABORT();
             } catch (exceptions::StackTraceException const& e) {
-                logger.error("Exception in thread with thread id {}", thread_id);
-                logger.error("Caught in mod id: " _CATCH_HANDLER_ID ": Uncaught StackTraceException! what(): {}", e.what());
                 SAFE_ABORT();
             } catch (std::exception const& e) {
-                logger.error("Exception in thread with thread id {}", thread_id);
-                logger.error("Caught in mod id: " _CATCH_HANDLER_ID ": Uncaught C++ exception! type name: {}, what(): {}", typeid(e).name(), e.what());
                 SAFE_ABORT();
             } catch(...) {
-                logger.error("Exception in thread with thread id {}", thread_id);
-                logger.error("Caught in mod id: " _CATCH_HANDLER_ID ": Uncaught, unknown exception (not std::exception) with no known what() method!");
                 SAFE_ABORT();
             }
         }
@@ -812,56 +788,52 @@ namespace il2cpp_utils {
             template<typename Predicate, typename... TArgs>
             requires(std::is_invocable_v<Predicate, std::decay_t<TArgs>...>)
             static void internal_thread(Predicate&& pred, TArgs&&... args) {
-                auto logger = il2cpp_utils::Logger;
-
                 // attach thread to jvm
-                modloader_jvm->AttachCurrentThread(&env, nullptr);
+                // TODO: modloader specific stuff
+                //modloader_jvm->AttachCurrentThread(&env, nullptr);
 
                 il2cpp_functions::Init();
 
-                logger.info("Attaching thread");
                 auto domain = il2cpp_functions::domain_get();
                 auto thread = il2cpp_functions::thread_attach(domain);
 
-                logger.info("Invoking predicate");
                 try {
                     std::invoke(std::forward<Predicate>(pred), std::forward<std::decay_t<TArgs>>(args)...);
-                } catch(RunMethodException const& e) {
-                    logger.error("Caught in mod id: " _CATCH_HANDLER_ID ": Uncaught RunMethodException! what(): {}", e.what());
+                } catch(RunMethodException const& e) {            
                     e.log_backtrace();
                     if (e.ex) e.rethrow();
                     il2cpp_functions::thread_detach(thread);
-                    modloader_jvm->DetachCurrentThread();
+                    // TODO: modloader specific stuff
+                    //modloader_jvm->DetachCurrentThread();
                     env = nullptr;
                     SAFE_ABORT();
                 } catch(exceptions::StackTraceException const& e) {
-                    logger.error("Caught in mod id: " _CATCH_HANDLER_ID ": Uncaught StackTraceException! what(): {}", e.what());
                     e.log_backtrace();
                     il2cpp_functions::thread_detach(thread);
-                    modloader_jvm->DetachCurrentThread();
+                    // TODO: modloader specific stuff
+                    //modloader_jvm->DetachCurrentThread();
                     env = nullptr;
                     SAFE_ABORT();
                 } catch(std::exception& e) {
-                    logger.error("Caught in mod id: " _CATCH_HANDLER_ID ": Uncaught C++ exception! type name: {}, what(): {}", typeid(e).name(), e.what());
                     il2cpp_functions::thread_detach(thread);
-                    modloader_jvm->DetachCurrentThread();
+                    // TODO: modloader specific stuff
+                    //modloader_jvm->DetachCurrentThread();
                     env = nullptr;
                     SAFE_ABORT();
                 } catch(...) {
-                    logger.error("Caught in mod id: " _CATCH_HANDLER_ID ": Uncaught, unknown C++ exception (not std::exception) with no known what() method!");
                     il2cpp_functions::thread_detach(thread);
-                    modloader_jvm->DetachCurrentThread();
+                    // TODO: modloader specific stuff
+                    //modloader_jvm->DetachCurrentThread();
                     env = nullptr;
                     SAFE_ABORT();
                 }
-
-                logger.info("Detaching thread");
 
                 // detach il2cpp thread
                 il2cpp_functions::thread_detach(thread);
 
                 // detach thread from jvm
-                modloader_jvm->DetachCurrentThread();
+                // TODO: modloader specific stuff
+                //modloader_jvm->DetachCurrentThread();
                 env = nullptr;
             }
 

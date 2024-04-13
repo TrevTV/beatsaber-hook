@@ -50,8 +50,7 @@ namespace il2cpp_utils {
             Il2CppObject* inst;
 
             BadCastException(::Il2CppClass const* klass, ::Il2CppClass const* targetKlass, Il2CppObject* inst)
-                : il2cpp_utils::exceptions::StackTraceException(fmt::format("Failed to cast {} to {}", ClassStandardName(klass, true),
-                                                                              ClassStandardName(targetKlass, true))),
+                : il2cpp_utils::exceptions::StackTraceException("Failed to cast"),
                   klass(klass),
                   targetKlass(targetKlass),
                   inst(inst) {}
@@ -100,10 +99,7 @@ namespace il2cpp_utils {
             // TODO: Eventually skip two frames (assuming no inlined methods) for this constructor and the captured backtrace call.
             stacktrace_size = backtrace_helpers::captureBacktrace(stacktrace_buffer, STACK_TRACE_SIZE, 0);
         }
-        // TODO: Add a logger argument here so we could better write out to a targetted buffer.
-        // For now, we will stick to using the UtilsLogger.
-        // It will be our caller's responsibility to determine what to do AFTER the backtrace is logged-- whether it be to terminate or rethrow.
-        // Logs the backtrace with the Logging::ERROR level, using the global logger instance.
+
         void log_backtrace() const;
         [[noreturn]] void rethrow() const {
             #if defined(UNITY_2019) || defined(UNITY_2021)
@@ -134,33 +130,14 @@ namespace il2cpp_utils {
 // If an exception is thrown that is otherwise what-able is caught, it will attempt to call the what() method
 // and then rethrow the exception to the il2cpp domain.
 // If an unknown exception is caught, it will terminate explicitly, as opposed to letting it be thrown across the il2cpp domain.
-// All logs that occur as a result of this function will be under the core beatsaber-hook global logger.
 #define IL2CPP_CATCH_HANDLER(...) try { \
     __VA_ARGS__ \
 } catch (::il2cpp_utils::RunMethodException const& exc) { \
-    ::il2cpp_utils::Logger.error("Caught in mod ID: " _CATCH_HANDLER_ID ": Uncaught RunMethodException! what(): {}", exc.what()); \
-    exc.log_backtrace(); \
-    ::il2cpp_utils::Logger.error("Catch handler backtrace..."); \
-    ::il2cpp_utils::Logger.Backtrace(100); \
-    if (exc.ex) { \
-        exc.rethrow(); \
-    } \
     SAFE_ABORT(); \
 } catch (::il2cpp_utils::exceptions::StackTraceException const& exc) { \
-    ::il2cpp_utils::Logger.error("Caught in mod ID: " _CATCH_HANDLER_ID ": Uncaught StackTraceException! what(): {}", exc.what()); \
-    exc.log_backtrace(); \
-    ::il2cpp_utils::Logger.error("Catch handler backtrace..."); \
-    ::il2cpp_utils::Logger.Backtrace(100); \
     SAFE_ABORT(); \
 } catch (::std::exception const& exc) { \
-    ::il2cpp_utils::Logger.error("Caught in mod ID: " _CATCH_HANDLER_ID ": Uncaught C++ exception! type name: {}, what(): {}", typeid(exc).name(), exc.what()); \
-    ::il2cpp_utils::Logger.error("Catch handler backtrace..."); \
-    ::il2cpp_utils::Logger.Backtrace(100); \
-    ::il2cpp_utils::raise(exc); \
 } catch (...) { \
-    ::il2cpp_utils::Logger.error("Caught in mod ID: " _CATCH_HANDLER_ID ": Uncaught, unknown C++ exception (not std::exception) with no known what() method!"); \
-    ::il2cpp_utils::Logger.error("Catch handler backtrace..."); \
-    ::il2cpp_utils::Logger.Backtrace(100); \
     SAFE_ABORT(); \
 }
 

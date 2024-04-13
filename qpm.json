@@ -23,11 +23,6 @@
   },
   "dependencies": [
     {
-      "id": "scotland2",
-      "versionRange": "^0.1.2",
-      "additionalData": {}
-    },
-    {
       "id": "libil2cpp",
       "versionRange": "^0.3.0",
       "additionalData": {}
@@ -38,11 +33,6 @@
       "additionalData": {
         "private": true
       }
-    },
-    {
-      "id": "paper",
-      "versionRange": "^3.3.1",
-      "additionalData": {}
     }
   ]
 }

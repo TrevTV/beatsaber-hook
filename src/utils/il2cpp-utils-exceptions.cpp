@@ -26,33 +26,23 @@ namespace il2cpp_utils {
         __builtin_unreachable();
     }
     #endif
-
-    // TODO: Add a logger argument here so we could better write out to a targetted buffer.
-    // For now, we will stick to using the UtilsLogger.
-    // It will be our caller's responsibility to determine what to do AFTER the backtrace is logged-- whether it be to terminate or rethrow.
-    // Logs the backtrace with the Logging::ERROR level, using the global logger instance.
+    
     static void log_backtrace_full(void* const* stacktrace_buffer, uint16_t stacktrace_size) {
-        auto const& logger = il2cpp_utils::Logger;
-        logger.error("[UNCAUGHT-EXCEPTION] Logging backtrace for RunMethodException with size: {}...", stacktrace_size);
-        logger.error("[UNCAUGHT-EXCEPTION] *** *** *** *** *** *** *** *** *** *** *** *** *** *** *** ***");
-        logger.error("[UNCAUGHT-EXCEPTION] pid: {}, tid: {}", getpid(), gettid());
         for (uint16_t i = 0; i < stacktrace_size; ++i) {
             Dl_info info;
             if (dladdr(stacktrace_buffer[i], &info)) {
                 // Buffer points to 1 instruction ahead
-                long addr = reinterpret_cast<char*>(stacktrace_buffer[i]) - reinterpret_cast<char*>(info.dli_fbase) - 4;
+                //long addr = reinterpret_cast<char*>(stacktrace_buffer[i]) - reinterpret_cast<char*>(info.dli_fbase) - 4;
                 if (info.dli_sname) {
                     int status;
                     const char *demangled = abi::__cxa_demangle(info.dli_sname, nullptr, nullptr, &status);
                     if (status) {
                         demangled = info.dli_sname;
                     }
-                    logger.error("        #{:02}  pc {:016x}  {} ({})\n", i, addr, info.dli_fname, demangled);
                     if (!status) {
                         free(const_cast<char*>(demangled));
                     }
                 } else {
-                    logger.error("        #{:02}  pc {:016x} {}\n", i, addr, info.dli_fname);
                 }
             }
         }

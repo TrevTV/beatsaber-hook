@@ -2,7 +2,6 @@
 
 #pragma pack(push)
 
-#include "logging.hpp"
 #include "il2cpp-type-check.hpp"
 #include "il2cpp-functions.hpp"
 #include "il2cpp-utils-exceptions.hpp"
@@ -20,12 +19,11 @@ namespace il2cpp_utils {
         void* val = obj;
         // nullptr (which runtime_invoke returns for "void" return type!) is different from nullopt (a runtime_invoke error!)
         if (obj && il2cpp_functions::class_is_valuetype(il2cpp_functions::object_get_class(obj))) {
-            auto logger = il2cpp_utils::Logger;
             // So, because il2cpp finds it necessary to box returned value types (and also not deallocate them), we need to free them ourselves.
             // What we need to do is first extract the value, which we can do by casting and dereferencing
             // Then we need to PROPERLY free the allocating object at obj
             // Then we can return our result.
-            val = RET_NULLOPT_UNLESS(logger, il2cpp_functions::object_unbox(obj));
+            val = RET_NULLOPT_UNLESS(il2cpp_functions::object_unbox(obj));
             if constexpr (::std::is_pointer_v<TOut>) {
                 // No cleanup necessary for pointer value types
                 return static_cast<TOut>(val);
@@ -62,13 +60,6 @@ namespace il2cpp_utils {
     }
 
     std::string GenericClassStandardName(Il2CppGenericClass* genClass);
-    // Some parts provided by zoller27osu
-    // Logs information about the given Il2CppClass* as log(DEBUG)
-    void LogClass(Paper::LoggerContext const& logger, Il2CppClass* klass, bool logParents = false) noexcept;
-
-    // Logs all classes (from every namespace) that start with the given prefix
-    // WARNING: THIS FUNCTION IS VERY SLOW. ONLY USE THIS FUNCTION ONCE AND WITH A FAIRLY SPECIFIC PREFIX!
-    void LogClasses(Paper::LoggerContext const& logger, ::std::string_view classPrefix, bool logParents = false) noexcept;
 
     // Gets the System.Type Il2CppObject* (actually an Il2CppReflectionType*) for an Il2CppClass*
     Il2CppReflectionType* GetSystemType(const Il2CppClass* klass);
@@ -94,18 +85,13 @@ namespace il2cpp_utils {
     Il2CppClass* ExtractClass(T&& arg) {
         using Dt = ::std::decay_t<T>;
         using arg_class = il2cpp_type_check::il2cpp_arg_class<Dt>;
-        auto const& logger = il2cpp_utils::Logger;
         Il2CppClass* klass = arg_class::get(arg);
-        if (!klass) {
-            logger.error("Failed to determine class! Tips: instead of nullptr, pass the Il2CppType* or Il2CppClass* of the argument instead!");
-        }
         return klass;
     }
 
     template<class T, bool ResultRequired = false>
     Il2CppClass* NoArgClass() {
         // TODO: change ifndef HAS_CODEGEN to 'if compile warnings are not errors'?
-        auto const& logger = il2cpp_utils::Logger;
 #ifndef HAS_CODEGEN
         using arg_class = il2cpp_type_check::il2cpp_no_arg_class<T>;
         if constexpr (!has_get<arg_class>) {
@@ -113,12 +99,12 @@ namespace il2cpp_utils {
                 static_assert(false_t<arg_class>, "il2cpp-type-check.hpp could not deduce what C# type your type represents");
             } else {
                 a_lack_of_no_arg_class_for<T>("please tell il2cpp-type-check.hpp what C# type your type represents");
-                THROW_OR_RET_NULL(logger, false);
+                THROW_OR_RET_NULL(false);
             }
         } else
         #endif
         if constexpr (ResultRequired) {
-            return THROW_OR_RET_NULL(logger, il2cpp_type_check::il2cpp_no_arg_class<T>::get());
+            return THROW_OR_RET_NULL(il2cpp_type_check::il2cpp_no_arg_class<T>::get());
         } else {
             return il2cpp_type_check::il2cpp_no_arg_class<T>::get();
         }
@@ -126,18 +112,14 @@ namespace il2cpp_utils {
 
     template<typename T>
     const Il2CppType* ExtractType(T&& arg) {
-        auto const& logger = il2cpp_utils::Logger;
         const Il2CppType* typ = il2cpp_type_check::il2cpp_arg_type<T>::get(arg);
-        if (!typ)
-            logger.error("ExtractType: failed to determine type! Tips: instead of nullptr, pass the Il2CppType* or Il2CppClass* of the argument instead!");
         return typ;
     }
 
     // Like ExtractType, but only returns an Il2CppType* if it can be extracted without an instance of T.
     template<class T>
     const Il2CppType* ExtractIndependentType() {
-        auto const& logger = il2cpp_utils::Logger;
-        static auto* typ = RET_0_UNLESS(logger, il2cpp_type_check::il2cpp_no_arg_type<T>::get());
+        static auto* typ = RET_0_UNLESS(il2cpp_type_check::il2cpp_no_arg_type<T>::get());
         return typ;
     }
 
@@ -177,8 +159,8 @@ namespace il2cpp_utils {
     template<typename ParentT>
     bool AssignableFrom(Il2CppClass* subOrInstanceKlass) {
         il2cpp_functions::Init();
-        RET_DEFAULT_UNLESS(il2cpp_utils::Logger, subOrInstanceKlass);
-        static auto* parentK = RET_DEFAULT_UNLESS(il2cpp_utils::Logger, classof(ParentT));
+        RET_DEFAULT_UNLESS(subOrInstanceKlass);
+        static auto* parentK = RET_DEFAULT_UNLESS(classof(ParentT));
         return il2cpp_functions::class_is_assignable_from(parentK, subOrInstanceKlass);
     }
 

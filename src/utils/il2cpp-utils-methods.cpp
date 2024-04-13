@@ -4,7 +4,6 @@
 #include "utils/il2cpp-functions.hpp"
 #include "utils/il2cpp-utils-classes.hpp"
 #include "utils/il2cpp-utils-methods.hpp"
-#include "utils/logging.hpp"
 #include "utils/utils.h"
 #include <algorithm>
 #include <cstdint>
@@ -74,30 +73,26 @@ namespace il2cpp_utils {
     const MethodInfo* MakeGenericMethod(const MethodInfo* info, std::span<const Il2CppClass* const> const types) noexcept
     #endif
     {
-        static auto logger = il2cpp_utils::Logger;
         il2cpp_functions::Init();
         // Ensure it exists and is generic
-        THROW_OR_RET_NULL(logger, info);
-        THROW_OR_RET_NULL(logger, il2cpp_functions::method_is_generic(info));
-        static auto* typeClass = THROW_OR_RET_NULL(logger, il2cpp_functions::defaults->systemtype_class);
+        THROW_OR_RET_NULL(info);
+        THROW_OR_RET_NULL(il2cpp_functions::method_is_generic(info));
+        static auto* typeClass = THROW_OR_RET_NULL(il2cpp_functions::defaults->systemtype_class);
         // Create the Il2CppReflectionMethod* from the MethodInfo* using the MethodInfo's type
         auto* infoObj = il2cpp_functions::method_get_object(info, nullptr);
         if (!infoObj) {
-            logger.error("[MakeGenericMethod] Failed to get MonoMethod from MethodInfo: {}", fmt::ptr(info));
-            THROW_OR_RET_NULL(logger, infoObj);
+            THROW_OR_RET_NULL(infoObj);
         }
         // Populate generic parameters into array
         auto* arr = reinterpret_cast<Array<Il2CppReflectionType*>*>(il2cpp_functions::array_new(typeClass, types.size()));
         if (!arr) {
-            logger.error("Failed to create array of length: {}", types.size());
-            THROW_OR_RET_NULL(logger, arr);
+            THROW_OR_RET_NULL(arr);
         }
         int i = 0;
         for (auto* klass : types) {
             auto* typeObj = GetSystemType(klass);
             if (!typeObj) {
-                logger.error("Failed to get type object from class: {}", il2cpp_functions::class_get_name_const(klass));
-                THROW_OR_RET_NULL(logger, typeObj);
+                THROW_OR_RET_NULL(typeObj);
             }
             arr->_values[i] = typeObj;
             i++;
@@ -109,16 +104,14 @@ namespace il2cpp_utils {
                                                                               std::array<const Il2CppType*, 1>{ il2cpp_utils::ExtractType(arr) }
                                                                               );
         auto res = il2cpp_utils::RunMethodOpt<Il2CppReflectionMethod*, false>(infoObj, MakeGenericMethodInfo, arr);
-        const auto* returnedInfoObj = RET_0_UNLESS(logger, res);
+        const auto* returnedInfoObj = RET_0_UNLESS(res);
         if (!returnedInfoObj) {
-            logger.error("Failed to get Il2CppReflectionMethod from MakeGenericMethod!");
-            THROW_OR_RET_NULL(logger, returnedInfoObj);
+            THROW_OR_RET_NULL(returnedInfoObj);
         }
         // Get MethodInfo* back from generic instantiated method
         const auto* inflatedInfo = il2cpp_functions::method_get_from_reflection(returnedInfoObj);
         if (!inflatedInfo) {
-            logger.error("Got null MethodInfo* from Il2CppReflectionMethod: {}", fmt::ptr(returnedInfoObj));
-            THROW_OR_RET_NULL(logger, inflatedInfo);
+            THROW_OR_RET_NULL(inflatedInfo);
         }
         // Return method to be invoked by caller
         return inflatedInfo;
@@ -143,52 +136,38 @@ namespace il2cpp_utils {
         if (!klass->initialized_and_no_error) il2cpp_functions::Class_Init(klass);
         if (!declaringClass->initialized_and_no_error) il2cpp_functions::Class_Init(declaringClass);
 
-        auto const& logger = il2cpp_utils::Logger;
         if(il2cpp_functions::class_is_interface(declaringClass)) {
             // if the declaring class is an interface,
             // vtable_count means nothing and instead method_count should be used
             // their vtables are just as valid though!
             if (slot >= declaringClass->method_count) { // we tried looking for a slot that is outside the bounds of the interface vtable
                 // dump some info so the user can know which method was attempted to be resolved
-                logger.error("Declaring class has a vtable that's too small, dumping resolve info:");
-                logger.error("Instance class:                   {}::{}", klass->namespaze, klass->name);
-                logger.error("Instance class vtable slots:      {}", klass->vtable_count);
-                logger.error("Declaring class:                  {}::{}", declaringClass->namespaze, declaringClass->name);
-                logger.error("Declaring class vtable slots:     {}", declaringClass->vtable_count);
-                logger.error("Attempted slot:                   {}", slot);
                 return {};
             }
 
             for (uint16_t i = 0; i < klass->interface_offsets_count; i++) {
                 if(klass->interfaceOffsets[i].interfaceType == declaringClass) {
                     int32_t offset = klass->interfaceOffsets[i].offset;
-                    RET_DEFAULT_UNLESS(logger, offset + slot < klass->vtable_count);
+                    RET_DEFAULT_UNLESS(offset + slot < klass->vtable_count);
                     return klass->vtable[offset + slot].method;
                 }
             }
 
             // if klass is an interface itself, and we haven't found the method yet, we should look in klass->methods anyway
             if (il2cpp_functions::class_is_interface(klass)) {
-                RET_DEFAULT_UNLESS(logger, slot < klass->method_count);
+                RET_DEFAULT_UNLESS(slot < klass->method_count);
                 return klass->methods[slot];
             }
-
-            logger.error("could not find method in slot {} of interface '{}' in class '{}'!", slot, ClassStandardName(declaringClass).c_str(), ClassStandardName(klass).c_str());
         } else {
-            RET_DEFAULT_UNLESS(logger, slot < klass->vtable_count);
+            RET_DEFAULT_UNLESS(slot < klass->vtable_count);
             auto method = klass->vtable[slot].method;
 
             if (method->slot != slot) {
-                logger.warn("Resolving vtable slot led to a method info with a different slot! is this method abstract?");
-                logger.warn("Looking for: {}, resolved to: {}", slot, method->slot);
-
                 method = ResolveMethodWithSlot(klass, slot);
-                logger.info("After resolving method with slot: found method {}", fmt::ptr(method));
-
             }
 
             // resolved method slot should be the slot we asked for if it came from a non-interface
-            RET_DEFAULT_UNLESS(logger, method && slot == method->slot);
+            RET_DEFAULT_UNLESS(method && slot == method->slot);
 
             return method;
         }
@@ -206,8 +185,7 @@ namespace il2cpp_utils {
     #endif
     {
         il2cpp_functions::Init();
-        auto const& logger = il2cpp_utils::Logger;
-        RET_DEFAULT_UNLESS(logger, klass);
+        RET_DEFAULT_UNLESS(klass);
 
         // Check Cache
         auto innerPair = std::pair<std::string, decltype(MethodInfo::parameters_count)>(methodName, argsCount);
@@ -222,9 +200,7 @@ namespace il2cpp_utils {
         // Recurses through klass's parents
         auto methodInfo = il2cpp_functions::class_get_method_from_name(klass, methodName.data(), argsCount);
         if (!methodInfo) {
-            logger.error("could not find method {} with {} parameters in class '{}'!", methodName.data(), argsCount, ClassStandardName(klass).c_str());
-            LogMethods(logger, const_cast<Il2CppClass*>(klass), true);
-            RET_DEFAULT_UNLESS(logger, methodInfo);
+            RET_DEFAULT_UNLESS(methodInfo);
         }
         classNamesMethodsLock.lock();
         classesNamesToMethodsCache.emplace(key, methodInfo);
@@ -247,9 +223,8 @@ namespace il2cpp_utils {
     const MethodInfo* FindMethodUnsafe(Il2CppObject* instance, std::string_view methodName, int argsCount) noexcept
     #endif
     {
-        auto const& logger = il2cpp_utils::Logger;
         il2cpp_functions::Init();
-        auto klass = RET_DEFAULT_UNLESS(logger, il2cpp_functions::object_get_class(instance));
+        auto klass = RET_DEFAULT_UNLESS(il2cpp_functions::object_get_class(instance));
         return FindMethodUnsafe(klass, methodName, argsCount);
     }
 
@@ -362,10 +337,9 @@ namespace il2cpp_utils {
     const MethodInfo* FindMethod(FindMethodInfo const& info) noexcept
 #endif
     {
-        auto logger = il2cpp_utils::Logger;
         il2cpp_functions::Init();
         auto* klass = info.klass;
-        RET_DEFAULT_UNLESS(logger, klass);
+        RET_DEFAULT_UNLESS(klass);
 
         // Check Cache
         {
@@ -407,14 +381,12 @@ namespace il2cpp_utils {
             auto const methodsSpan = std::span(targetKlass->methods, targetKlass->method_count);
             for (auto const& current : methodsSpan) {
                 if (info.name != current->name) {
-                    // logger.debug("Method name does not match for method %s", current->name);
                     continue;
                 }
 
                 // strict equal
                 bool isPerfect;
                 if (!ParameterMatch(current, info.genTypes, info.argTypes, &isPerfect)) {
-                    // logger.debug("Parameters do not match for method %s", current->name);
                     continue;
                 }
 
@@ -473,17 +445,8 @@ namespace il2cpp_utils {
 
                 // if no perfect match, look for lowest weighted
                 if (!target) {
-                    logger.warn("[FindMethod] Found multiple methods that match for {}.{}", ClassStandardName(klass).c_str(), info.name.data());
-                    for (auto const& [method, weight] : weightMap) {
-                        logger.warn("[FindMethod] Weight {} Method {}", weight, method->name);
-                        Paper::LoggerContext c = Paper::ConstLoggerContext("");
-                        LogMethod(logger, method);
-                    }
-
                     target = std::min_element(weightMap.begin(), weightMap.end(), [](auto a, auto b) { return a.second < b.second; })->first;
-                    logger.warn("Using the following:");
                     CRASH_UNLESS(target);
-                    LogMethod(logger, target);
                 }
             }
         }
@@ -494,107 +457,15 @@ namespace il2cpp_utils {
             classesNamesTypesToMethodsCache.emplace(info, target);
         }
 
-        if (!target) {
-            std::stringstream ss;
-            ss << ((matches.size() > 1) ? "found multiple matches for" : "could not find");
-            ss << " method " << info.name;
-            bool first = true;
-            // start listing generic types
-            if (!info.genTypes.empty()) {
-                ss << "<";
-                for (auto t : info.genTypes) {
-                    if (!first) ss << ", ";
-                    first = false;
-                    ss << ClassStandardName(t);
-                }
-                ss << ">";
-            }
-
-            // start listing params
-            first = true;
-            ss << "(";
-            for (auto t : info.argTypes) {
-                if (!first) ss << ", ";
-                first = false;
-                ss << TypeGetSimpleName(t);
-            }
-            ss << ") in class '" << ClassStandardName(klass) << "'!";
-            logger.error("{}", ss.str().c_str());
-            LogMethods(logger, klass);
-        }
-
         return target;
     }
 
-    void LogMethods(Paper::LoggerContext const& logger, Il2CppClass const* klass, bool logParents) {
-        RET_V_UNLESS(logger, klass);
-
-        if (klass->name) {
-            il2cpp_functions::Init();
-            il2cpp_functions::Class_Init(const_cast<Il2CppClass*>(klass));
-        }
-        if (klass->method_count && !(klass->methods)) {
-            logger.warn("Class is valid and claims to have methods but ->methods is null! class name: {}", ClassStandardName(klass).c_str());
-            return;
-        }
-        if (logParents) logger.info("class name: {}", ClassStandardName(klass));
-
-        logger.debug("method_count: {}", klass->method_count);
-        for (int i = 0; i < klass->method_count; i++) {
-            if (klass->methods[i]) {
-                logger.debug("Method {}:", i);
-                LogMethod(logger, klass->methods[i]);
-            } else {
-                logger.warn("Method: {} Does not exist!", i);
-            }
-        }
-        usleep(100);  // 0.0001s
-        if (logParents && klass->parent && (klass->parent != klass)) {
-            LogMethods(logger, klass->parent, logParents);
-        }
-    }
-
-    void LogMethod(Paper::LoggerContext const& logger, const MethodInfo* method) {
-        il2cpp_functions::Init();
-        RET_V_UNLESS(logger, method);
-
-        auto flags = il2cpp_functions::method_get_flags(method, nullptr);
-        std::stringstream flagStream;
-        if (flags & METHOD_ATTRIBUTE_STATIC) flagStream << "static ";
-        if (flags & METHOD_ATTRIBUTE_VIRTUAL) flagStream << "virtual ";
-        if (flags & METHOD_ATTRIBUTE_ABSTRACT) flagStream << "abstract ";
-        const auto& flagStrRef = flagStream.str();
-        const char* flagStr = flagStrRef.c_str();
-        auto* retType = il2cpp_functions::method_get_return_type(method);
-        auto retTypeStr = TypeGetSimpleName(retType);
-        auto methodName = il2cpp_functions::method_get_name(method);
-        methodName = methodName ? methodName : "__noname__";
-        std::stringstream paramStream;
-        for (size_t i = 0; i < il2cpp_functions::method_get_param_count(method); i++) {
-            if (i > 0) paramStream << ", ";
-            auto* argType = il2cpp_functions::method_get_param(method, i);
-            if (il2cpp_functions::type_is_byref(argType)) {
-                paramStream << "out/ref ";
-            }
-            paramStream << TypeGetSimpleName(argType) << " ";
-            auto name = il2cpp_functions::method_get_param_name(method, i);
-            paramStream << (name ? name : "__noname__");
-        }
-        const auto& paramStrRef = paramStream.str();
-        const char* paramStr = paramStrRef.c_str();
-        // TODO: add <T> after methodName
-        logger.debug("{}{} {}({});", flagStr, retTypeStr, methodName, paramStr);
-    }
-
     bool IsConvertibleFrom(const Il2CppType* to, const Il2CppType* from, bool asArgs) {
-        auto const& logger = il2cpp_utils::Logger;
-        RET_0_UNLESS(logger, to);
-        RET_0_UNLESS(logger, from);
+        RET_0_UNLESS(to);
+        RET_0_UNLESS(from);
         if (asArgs) {
             if (to->byref) {
                 if (!from->byref) {
-                    logger.debug("to ({}, {}) is ref/out while from ({}, {}) is not. Not convertible.",
-                        TypeGetSimpleName(to), fmt::ptr(to), TypeGetSimpleName(from), fmt::ptr(from));
                     return false;
                 }
             }

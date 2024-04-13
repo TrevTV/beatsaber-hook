@@ -29,6 +29,7 @@ constexpr bool has_get = std::experimental::is_detected_v<get_t, T>;
 
 #include "utils.h"
 #include <string_view>
+#include <span>
 
 #ifndef classof
 // Returns the Il2CppClass* of the provided type T.
@@ -65,8 +66,6 @@ struct Il2CppCsTypeWrapper {
 #endif
 
 namespace il2cpp_utils {
-
-
     // instant return
     inline ::std::vector<Il2CppClass*>& ClassesFrom(::std::vector<Il2CppClass*>& classes) {
         return classes;
@@ -147,9 +146,8 @@ namespace il2cpp_utils {
                 if (ptrKlass) return ptrKlass;
                 
                 il2cpp_functions::Init();
-                auto const& logger = il2cpp_utils::Logger;
-                auto* klass = RET_0_UNLESS(logger, il2cpp_no_arg_class<T>::get());
-                RET_0_UNLESS(logger, il2cpp_functions::class_is_valuetype(klass));
+                auto* klass = RET_0_UNLESS(il2cpp_no_arg_class<T>::get());
+                RET_0_UNLESS(il2cpp_functions::class_is_valuetype(klass));
                 ptrKlass = il2cpp_functions::Class_GetPtrClass(klass);
 
                 return ptrKlass;
@@ -318,8 +316,7 @@ namespace il2cpp_utils {
         template <>
         struct BS_HOOKS_HIDDEN il2cpp_arg_class<Il2CppType*> {
             static inline Il2CppClass* get(Il2CppType* arg) {
-                auto const& logger = il2cpp_utils::Logger;
-                RET_0_UNLESS(logger, arg);
+                RET_0_UNLESS(arg);
                 il2cpp_functions::Init();
                 return il2cpp_functions::class_from_il2cpp_type(arg);
             }

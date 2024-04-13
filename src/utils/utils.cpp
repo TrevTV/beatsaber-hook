@@ -12,7 +12,6 @@
 #include <link.h>
 #include "il2cpp-object-internals.h"
 #include "shared/utils/gc-alloc.hpp"
-#include "utils/logging.hpp"
 
 namespace backtrace_helpers {
 _Unwind_Reason_Code unwindCallback(struct _Unwind_Context* context, void* arg) {
@@ -59,7 +58,6 @@ void analyzeBytes(std::stringstream& ss, const void* ptr, int indent) {
     tabs(ss, indent);
     if (analyzed.count(ptr)) {
         ss << "! loop at 0x" << std::hex << ptr << "!";
-        il2cpp_utils::Logger.info("{}", ss.str());
         return;
     }
     analyzed.insert(ptr);
@@ -70,7 +68,6 @@ void analyzeBytes(std::stringstream& ss, const void* ptr, int indent) {
     if (asUInts[0] >= 0x1000000000000ll && isprint(asChars[0])) {
         ss << "chars: \"" << asChars << "\"";
         ss << " (first 8 bytes in hex = 0x" << std::hex << std::setw(16) << asUInts[0] << ")";
-        il2cpp_utils::Logger.info("{}", ss.str());
         return;
     }
     for (int i = 0; i < 4; i++) {
@@ -94,7 +91,6 @@ void analyzeBytes(std::stringstream& ss, const void* ptr, int indent) {
                 ss << ")";
             }
         }
-        il2cpp_utils::Logger.info("{}", ss.str());
         if (asUInts[i] > 0x7f00000000ll) {
             analyzeBytes(ss, (void*)asUInts[i], indent + 1);
         }
@@ -104,13 +100,16 @@ void analyzeBytes(std::stringstream& ss, const void* ptr, int indent) {
 static uintptr_t soSize = 0;
 
 uintptr_t getLibil2cppSize() {
-    auto const& contextLogger = il2cpp_utils::Logger;
     if (soSize == 0) {
+        void* mod = dlopen("libil2cpp.so", RTLD_LAZY);
+        Dl_info dlInfo;
+        void* initPtr = dlsym(mod, "il2cpp_init");
+        dladdr(initPtr, &dlInfo);
         struct stat st;
-        if (!stat(modloader_get_libil2cpp_path(), &st)) {
+        if (!stat(dlInfo.dli_fname, &st)) {
             soSize = st.st_size;
         }
-        contextLogger.debug("libil2cpp.so size: 0x{:X}", soSize);
+        dlclose(mod);
     }
     return soSize;
 }
@@ -121,7 +120,6 @@ void analyzeBytes(const void* ptr) {
     std::stringstream ss;
     ss << std::setfill('0');
     ss << "ptr: " << std::hex << std::setw(16) << (uintptr_t)ptr;
-    il2cpp_utils::Logger.info("{}", ss.str());
     analyzeBytes(ss, ptr, 0);
 }
 
@@ -143,7 +141,6 @@ uintptr_t baseAddr(const char* soname) {
     }, &dat);
     if(status)
       return dat.base;
-    il2cpp_utils::Logger.error("baseAddr: Error on dl_iterate_phdr!");
     return (uintptr_t)NULL;
 }
 
@@ -155,7 +152,12 @@ uintptr_t getRealOffset(const void* offset)  // calculate dump.cs address + lib.
         // arm
         //  TOOD: Lets get the instance via some sort of initialization function
         //  OR we make EVERYTHING on an instance level
-        location = baseAddr(modloader_get_libil2cpp_path());
+        void* mod = dlopen("libil2cpp.so", RTLD_LAZY);
+        Dl_info dlInfo;
+        void* initPtr = dlsym(mod, "il2cpp_init");
+        dladdr(initPtr, &dlInfo);
+        location = baseAddr(dlInfo.dli_fname);
+        dlclose(mod);
     }
     return location + (uintptr_t)offset;
 }
@@ -213,26 +215,22 @@ uintptr_t findPattern(uintptr_t dwAddress, const char* pattern, uintptr_t dwSear
     return 0;
 }
 
-uintptr_t findUniquePattern(bool& multiple, uintptr_t dwAddress, const char* pattern, const char* label, uintptr_t dwSearchRangeLen) {
+uintptr_t findUniquePattern(bool& multiple, uintptr_t dwAddress, const char* pattern, uintptr_t dwSearchRangeLen) {
     uintptr_t firstMatchAddr = 0, newMatchAddr, start = dwAddress, dwEnd = dwAddress + dwSearchRangeLen;
     int matches = 0;
-    il2cpp_utils::Logger.debug("Sigscan for pattern: {}", pattern);
     while (start > 0 && start < dwEnd && (newMatchAddr = findPattern(start, pattern, dwEnd - start))) {
         if (!firstMatchAddr) firstMatchAddr = newMatchAddr;
         matches++;
-        if (label) il2cpp_utils::Logger.debug("Sigscan found possible \"{}\": offset 0x{:x}, pointer 0x{:x}", label, newMatchAddr - dwAddress, newMatchAddr);
         start = newMatchAddr + 1;
-        il2cpp_utils::Logger.debug("start = 0x{:x}, end = 0x{:x}", start, dwEnd);
         usleep(1000);
     }
     if (matches > 1) {
         multiple = true;
-        il2cpp_utils::Logger.warn("Multiple sig scan matches for \"{}\"!", label);
     }
     return firstMatchAddr;
 }
 
-uintptr_t findUniquePatternInLibil2cpp(bool& multiple, const char* pattern, const char* label) {
+uintptr_t findUniquePatternInLibil2cpp(bool& multiple, const char* pattern) {
     // Essentially call findUniquePattern for each segment listed in /proc/self/maps
     std::ifstream procMap("/proc/self/maps");
     std::string line;
@@ -255,7 +253,7 @@ uintptr_t findUniquePatternInLibil2cpp(bool& multiple, const char* pattern, cons
         auto perms = line.substr(spaceIdx + 1, 4);
         if (perms.find('r') != std::string::npos) {
             // Search between start and end
-            match = findUniquePattern(multiple, startAddr, pattern, label, endAddr - startAddr);
+            match = findUniquePattern(multiple, startAddr, pattern, endAddr - startAddr);
         }
     }
     procMap.close();
@@ -276,11 +274,9 @@ void setcsstr(Il2CppString* in, std::u16string_view str) {
 
 // Thanks DaNike!
 void dump(int before, int after, void* ptr) {
-    il2cpp_utils::Logger.debug("Dumping Immediate Pointer: {}: {:08x}", fmt::ptr(ptr), *reinterpret_cast<int*>(ptr));
     auto begin = static_cast<int*>(ptr) - before;
     auto end = static_cast<int*>(ptr) + after;
     for (auto cur = begin; cur != end; ++cur) {
-        il2cpp_utils::Logger.debug("{}: {:08x}", fmt::ptr(cur), *cur);
     }
 }
 

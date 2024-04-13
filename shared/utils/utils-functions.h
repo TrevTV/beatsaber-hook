@@ -6,54 +6,30 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include "logging.hpp"
 #include <unistd.h>
 #include <unwind.h>
 
 // logs the function, file and line, sleeps to allow logs to flush, then terminates program
-__attribute__((noreturn)) inline void safeAbort(const char* func, const char* file, int line, uint16_t frameCount = 512) {
-    auto const& logger = il2cpp_utils::Logger;
+__attribute__((noreturn)) inline void safeAbort() {
     // we REALLY want this to appear at least once in the log (for fastest fixing)
     for (int i = 0; i < 2; i++) {
         usleep(100000L);  // 0.1s
-        // TODO: Make this eventually have a passed in context
-        logger.critical("Aborting in {} at {}:{}", func, file, line);
     }
-    logger.Backtrace(frameCount);
-    Paper::Logger::WaitForFlush();
-    usleep(100000L);   // 0.1s
-    std::terminate();  // cleans things up and then calls abort
-}
-
-// logs the function, file and line, and provided message, sleeps to allow logs to flush, then terminates program
-template <typename... TArgs>
-__attribute__((noreturn)) inline void safeAbortMsg(const char* func, const char* file, int line, Paper::FmtStrSrcLoc<TArgs...> fmt, TArgs&&... args) {
-    auto logger = il2cpp_utils::Logger;
-    // we REALLY want this to appear at least once in the log (for fastest fixing)
-    for (int i = 0; i < 2; i++) {
-        usleep(100000L);  // 0.1s
-        // TODO: Make this eventually have a passed in context
-        logger.critical("Aborting in {} at {}:{}", func, file, line);
-        logger.critical(fmt, std::forward<TArgs>(args)...);
-    }
-    logger.Backtrace(512);
-    Paper::Logger::WaitForFlush();
-
     usleep(100000L);   // 0.1s
     std::terminate();  // cleans things up and then calls abort
 }
 
 // sets "file" and "line" to the file and line you call this macro from
 #ifndef SUPPRESS_MACRO_LOGS
-#define SAFE_ABORT() safeAbort(__PRETTY_FUNCTION__, __FILE__, __LINE__)
+#define SAFE_ABORT() safeAbort()
 #else
-#define SAFE_ABORT() safeAbort("undefined_function", "undefined_file", -1)
+#define SAFE_ABORT() safeAbort()
 #endif
 
 #ifndef SUPPRESS_MACRO_LOGS
-#define SAFE_ABORT_MSG(...) safeAbortMsg(__PRETTY_FUNCTION__, __FILE__, __LINE__, __VA_ARGS__)
+#define SAFE_ABORT_MSG(...) safeAbort()
 #else
-#define SAFE_ABORT_MSG(...) safeAbortMsg("undefined_function", "undefined_file", -1, __VA_ARGS__)
+#define SAFE_ABORT_MSG(...) safeAbort()
 #endif
 
 struct Il2CppString;
